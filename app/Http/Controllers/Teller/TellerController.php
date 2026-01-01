@@ -23,7 +23,8 @@ class TellerController extends Controller
     // API: return full queue and current served id
     public function queue()
     {
-        $customers = Customer::orderBy('id')->get();
+        $finished = Cache::get('teller_finished', []);
+        $customers = Customer::whereNotIn('id', $finished)->orderBy('id')->get();
         $current = Cache::get('teller_current_customer');
         // if no current, set to first in queue
         if (!$current && $customers->count()) {
@@ -37,6 +38,45 @@ class TellerController extends Controller
         ]);
     }
 
+    // API: mark a customer as finished (removed from active queue)
+    public function finish(Request $request)
+    {
+        $id = $request->input('customer_id');
+        if (!$id) {
+            return response()->json(['error' => 'customer_id required'], 400);
+        }
+
+        $finished = Cache::get('teller_finished', []);
+        if (!in_array($id, $finished)) {
+            $finished[] = (int) $id;
+            Cache::put('teller_finished', $finished);
+        }
+
+        // advance current to next available customer
+        $remaining = Customer::whereNotIn('id', $finished)->orderBy('id')->pluck('id');
+        $next = $remaining->first() ?? null;
+        if ($next) {
+            Cache::put('teller_current_customer', $next);
+        } else {
+            Cache::forget('teller_current_customer');
+        }
+
+        return response()->json(['finished' => $id, 'current' => $next]);
+    }
+
+    // API: provide recommendation payload for given customer id (demo)
+    public function showRecommendation($customerId)
+    {
+        // In production this would call AI/model service.
+        $recommendations = [
+            ['title' => 'Tabungan Prima', 'reason' => 'Cocok untuk penabung rutin'],
+            ['title' => 'Deposito Berjangka 3 bulan', 'reason' => 'Promo bunga lebih tinggi'],
+            ['title' => 'Kartu Kredit Silver', 'reason' => 'Kelayakan berdasarkan scoring internal'],
+        ];
+
+        return response()->json(['customer_id' => (int) $customerId, 'products' => $recommendations]);
+    }
+
     // API: set a specific customer as currently served
     public function serve(Request $request)
     {
@@ -45,6 +85,32 @@ class TellerController extends Controller
             Cache::put('teller_current_customer', $id);
         }
         return response()->json(['current' => $id]);
+    }
+
+    // API: set a specific customer as currently served via URL param
+    public function serveById($queueId)
+    {
+        Cache::put('teller_current_customer', $queueId);
+        return response()->json(['current' => (int) $queueId]);
+    }
+
+    // API: return single customer info (JSON) for UI/detail
+    public function showCustomer($customerId)
+    {
+        $customer = Customer::find($customerId);
+        if (!$customer) {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        $payload = [
+            'id' => $customer->id,
+            'name' => $customer->name,
+            'email' => $customer->email,
+            'photo' => $customer->photo ? '/storage/' . $customer->photo : null,
+            'profile' => $customer->profile ?? null,
+        ];
+
+        return response()->json($payload);
     }
 
     // API: advance to next customer in queue

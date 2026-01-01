@@ -24,6 +24,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/teller/api/queue', [\App\Http\Controllers\Teller\TellerController::class, 'queue'])->name('teller.api.queue');
         Route::post('/teller/api/serve', [\App\Http\Controllers\Teller\TellerController::class, 'serve'])->name('teller.api.serve');
         Route::post('/teller/api/serve/next', [\App\Http\Controllers\Teller\TellerController::class, 'serveNext'])->name('teller.api.serve.next');
+        Route::post('/teller/api/finish', [\App\Http\Controllers\Teller\TellerController::class, 'finish'])->name('teller.api.finish');
+        Route::get('/teller/api/recommendation/{customer}', [\App\Http\Controllers\Teller\TellerController::class, 'showRecommendation'])->name('teller.api.recommendation');
+        // convenience endpoints
+        Route::post('/teller/api/serve/{customer}', [\App\Http\Controllers\Teller\TellerController::class, 'serveById'])->name('teller.api.serve.byid');
+        Route::get('/teller/api/customer/{customer}', [\App\Http\Controllers\Teller\TellerController::class, 'showCustomer'])->name('teller.api.customer');
     });
     Route::middleware(['role:security'])->group(function () {
         Route::get('/security/dashboard', [\App\Http\Controllers\Security\SecurityController::class, 'index'])->name('security.dashboard');
