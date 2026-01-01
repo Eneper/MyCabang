@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\UserQueController;
 
 Route::get('/', function () {
     return view('auth.login');
@@ -44,12 +45,20 @@ Route::middleware('auth')->group(function () {
 // This route is intentionally unprotected by auth because brokers usually can't authenticate.
 // Protect it by setting MQTT_WEBHOOK_SECRET in .env and supplying the header X-MQTT-SECRET in requests.
 Route::post('/security/api/mqtt/webhook', [\App\Http\Controllers\Security\SecurityController::class, 'mqttWebhook'])->name('security.api.mqtt.webhook');
-    Route::middleware(['role:nasabah'])->group(function () {
+    Route::middleware(middleware: ['role:nasabah'])->group(function () {
         Route::get('/customer/queue', function () {
             return view('user.userqueue');
         })->name('nasabah.dashboard');
     });
+
+    Route::middleware(['role:nasabah'])->group(function () {
+
+        Route::get('/customer/queue', [UserQueController::class, 'index'])->name('user.queue.index');
+        Route::get('/customer/queue/{id}', [UserQueController::class, 'show'])->name('user.queue.show');
+        Route::get('/customer/notifications', [UserQueController::class, 'notifications'])->name('user.notifications');
+    });
 });
+
 
 
 require __DIR__.'/auth.php';
