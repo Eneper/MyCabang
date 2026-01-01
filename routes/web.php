@@ -26,10 +26,19 @@ Route::middleware('auth')->group(function () {
         Route::post('/teller/api/serve/next', [\App\Http\Controllers\Teller\TellerController::class, 'serveNext'])->name('teller.api.serve.next');
     });
     Route::middleware(['role:security'])->group(function () {
-        Route::get('/security/dashboard', function () {
-            return view('dashboard.securitydashboard');
-        })->name('security.dashboard');
+        Route::get('/security/dashboard', [\App\Http\Controllers\Security\SecurityController::class, 'index'])->name('security.dashboard');
+
+        // Face detection api
+        Route::get('/security/api/faces', [\App\Http\Controllers\Security\SecurityController::class, 'faceIndex'])->name('security.api.faces');
+        Route::get('/security/api/faces/{id}', [\App\Http\Controllers\Security\SecurityController::class, 'show'])->name('security.api.faces.show');
+        Route::post('/security/api/faces/{id}/confirm', [\App\Http\Controllers\Security\SecurityController::class, 'confirm'])->name('security.api.faces.confirm');
+
     });
+
+// optional HTTP webhook for MQTT brokers or bridges to POST detection results
+// This route is intentionally unprotected by auth because brokers usually can't authenticate.
+// Protect it by setting MQTT_WEBHOOK_SECRET in .env and supplying the header X-MQTT-SECRET in requests.
+Route::post('/security/api/mqtt/webhook', [\App\Http\Controllers\Security\SecurityController::class, 'mqttWebhook'])->name('security.api.mqtt.webhook');
     Route::middleware(['role:nasabah'])->group(function () {
         Route::get('/customer/queue', function () {
             return view('user.userqueue');

@@ -54,6 +54,30 @@ In order to ensure that the Laravel community is welcoming to all, please review
 
 If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
+---
+
+## Face detection MQTT integration
+
+Security dashboard supports ingesting face detection results either via an HTTP webhook (for MQTT->HTTP bridges) or by running a long-lived MQTT subscriber.
+
+Payload format (JSON):
+
+{
+  "name": "John Doe",
+  "photo": "data:image/jpeg;base64,/9j/..." or "https://example.com/photo.jpg",
+  "cust_id": 123,            // optional
+  "metadata": { ... }        // optional
+}
+
+Options:
+- Webhook: POST the JSON to `/security/api/mqtt/webhook`. Set `MQTT_WEBHOOK_SECRET` in `.env` and send header `X-MQTT-SECRET` to protect the endpoint. If your broker can't send CSRF tokens and Laravel rejects the request, add `/security/api/mqtt/webhook` to `$except` in `App\Http\Middleware\VerifyCsrfToken` or expose the webhook via `routes/api.php` (preferred).
+- MQTT client: install `php-mqtt/client` and run `php artisan mqtt:subscribe "security/faces"` to listen and store detections directly. The command will print usage guidance if the dependency is missing.
+
+Notes:
+- Photos encoded as data URLs will be saved to `storage/app/public/faces` (run `php artisan storage:link` to expose via `/storage`).
+- Confirming a detection (`POST /security/api/faces/{id}/confirm`) will attach it to or create a `customer` and enqueue them in the `security_queue` cache key.
+
+
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
