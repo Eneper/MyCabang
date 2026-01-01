@@ -53,6 +53,7 @@
                                 <div class="mt-3 d-flex gap-2">
                                     <button id="btn-next" class="btn btn-bca">Lanjutkan ke next</button>
                                     <button id="btn-recall" class="btn btn-outline-secondary">Panggil ulang</button>
+                                    <button id="btn-finish" class="btn btn-success">Selesai</button>
                                 </div>
 
                                 <hr class="my-3">
@@ -65,6 +66,15 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-3">
+
+                    <div>
+                        <h6 class="mb-2">Antrian Menunggu</h6>
+                        <div id="queue-list" class="list-group">
+                            <!-- populated by JS -->
                         </div>
                     </div>
                 </div>
@@ -88,6 +98,25 @@
                 document.getElementById('conn-status').className = 'text-danger';
                 return { customers: [], current: null };
             }
+        }
+
+        async function fetchRecommendationFor(id) {
+            try {
+                const res = await fetch('/teller/api/recommendation/' + id);
+                if (!res.ok) return [];
+                const data = await res.json();
+                return data.products || [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        async function fetchCustomer(id) {
+            try {
+                const res = await fetch('/teller/api/customer/' + id);
+                if (!res.ok) return null;
+                return await res.json();
+            } catch (e) { return null; }
         }
 
         function showEmptyDetail() {
@@ -138,6 +167,8 @@
             const data = await fetchQueue();
             if (!data.customers || !data.customers.length || !data.current) {
                 showEmptyDetail();
+                // still populate waiting list
+                populateQueueList(data.customers || [], data.current);
                 return;
             }
 
@@ -145,9 +176,87 @@
             const current = data.customers.find(x => x.id == data.current);
             if (current) {
                 showDetail(current);
+                // update recommendations
+                const prods = await fetchRecommendationFor(current.id);
+                const list = document.getElementById('suggestions');
+                list.innerHTML = '';
+                if (prods.length) {
+                    prods.forEach(p => {
+                        const el = document.createElement('div');
+                        el.className = 'list-group-item';
+                        el.innerHTML = `<strong>${p.title}</strong> — <span class="small text-muted">${p.reason}</span>`;
+                        list.appendChild(el);
+                    });
+                    document.getElementById('detail-rekomendasi').innerText = prods.map(p=>p.title).join(', ');
+                } else {
+                    list.innerHTML = '<div class="list-group-item text-muted">Tidak ada rekomendasi</div>';
+                    document.getElementById('detail-rekomendasi').innerText = '-';
+                }
             } else {
                 showEmptyDetail();
             }
+
+            // populate waiting list
+            populateQueueList(data.customers || [], data.current);
+        }
+
+        function populateQueueList(customers, currentId) {
+            const list = document.getElementById('queue-list');
+            list.innerHTML = '';
+            customers.forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item d-flex align-items-center';
+                item.innerHTML = `
+                    <div class="flex-fill">
+                        <div class="fw-bold">${c.name}</div>
+                        <div class="small text-muted">ID: ${c.id} — ${c.email || ''}</div>
+                    </div>
+                    <div class="btn-group ms-3" role="group">
+                        <button data-id="${c.id}" class="btn btn-sm btn-outline-primary btn-serve">Mulai layanan</button>
+                        <button data-id="${c.id}" class="btn btn-sm btn-outline-secondary btn-show">Lihat</button>
+                    </div>
+                `;
+
+                if (c.id == currentId) {
+                    item.classList.add('active');
+                }
+
+                list.appendChild(item);
+            });
+
+            // attach handlers
+            document.querySelectorAll('.btn-serve').forEach(b => {
+                b.onclick = async function () {
+                    const id = this.dataset.id;
+                    this.disabled = true;
+                    await fetch('/teller/api/serve/' + id, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf } });
+                    await refresh();
+                    this.disabled = false;
+                };
+            });
+
+            document.querySelectorAll('.btn-show').forEach(b => {
+                b.onclick = async function () {
+                    const id = this.dataset.id;
+                    const cust = await fetchCustomer(id);
+                    if (cust) {
+                        showDetail(cust);
+                        const prods = await fetchRecommendationFor(cust.id);
+                        const list = document.getElementById('suggestions');
+                        list.innerHTML = '';
+                        if (prods.length) {
+                            prods.forEach(p => {
+                                const el = document.createElement('div');
+                                el.className = 'list-group-item';
+                                el.innerHTML = `<strong>${p.title}</strong> — <span class="small text-muted">${p.reason}</span>`;
+                                list.appendChild(el);
+                            });
+                        } else {
+                            list.innerHTML = '<div class="list-group-item text-muted">Tidak ada rekomendasi</div>';
+                        }
+                    }
+                };
+            });
         }
 
         document.getElementById('btn-next').addEventListener('click', function () {
@@ -156,6 +265,20 @@
 
         document.getElementById('btn-recall').addEventListener('click', function () {
             recallCustomer();
+        });
+
+        document.getElementById('btn-finish').addEventListener('click', async function () {
+            const id = document.getElementById('detail-box').dataset.current;
+            if (!id) return;
+            const btn = this;
+            btn.disabled = true;
+            await fetch('/teller/api/finish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ customer_id: id })
+            });
+            await refresh();
+            btn.disabled = false;
         });
 
         // initial load and poll every 3s
