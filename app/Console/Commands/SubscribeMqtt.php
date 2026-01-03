@@ -105,18 +105,39 @@ class SubscribeMqtt extends Command
      * @param array $payload
      * @return string|null
      */
-    public function validateAndFormatPayload(array $payload): ?string
-    {
-        // if (empty($payload['name']) || empty($payload['id'])) {
-        //     return null;
-        // }
-
-        $name = $payload['name'];
-        $id = $payload['id'];
-        $recommendation = $payload['recommendations'] ?? ($payload['recommendation'] ?? 'none');
-
-        return "Received data - name: {$name}, id: {$id}, rekomendasi:{$recommendation}";
+   public function validateAndFormatPayload(array $payload): ?string
+{
+    // 1. Validasi field wajib
+    if (empty($payload['customer_id']) || empty($payload['status'])) {
+        return null;
     }
+
+    $customerId = $payload['customer_id'];
+    $timestamp  = $payload['timestamp'] ?? '-';
+    $status     = $payload['status'];
+
+    // 2. Ambil rekomendasi (array)
+    $recommendations = $payload['recommendations'] ?? [];
+
+    // 3. Format rekomendasi jadi string ringkas
+    $formattedRecs = [];
+
+    foreach ($recommendations as $rec) {
+        $formattedRecs[] = sprintf(
+            "%d. %s (%.2f)",
+            $rec['rank'] ?? 0,
+            $rec['product_name'] ?? 'Unknown',
+            $rec['confidence'] ?? 0
+        );
+    }
+
+    $recString = $formattedRecs
+        ? implode(' | ', $formattedRecs)
+        : 'No recommendation';
+
+    // 4. Return string final
+    return "AI Recommendation Received | customer_id: {$customerId} | time: {$timestamp} | status: {$status} | products: {$recString}";
+}
 
     /**
      * Store payload via FaceDetectionService and broadcast to dashboard (security channel)

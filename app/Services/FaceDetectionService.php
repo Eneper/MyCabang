@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Services;
+
 use App\Models\Customer;
 use App\Models\FaceDetection;
 
@@ -8,35 +9,38 @@ class FaceDetectionService
 {
     /**
      * Store a face detection from payload array
-     * Expected keys: name, id|cust_id|customer_id, metadata (optional)
+     * Expected keys:
+     * - customer_id | cust_id | id
+     * - recommendations (array, optional)
+     * - timestamp (optional)
+     * - status (optional)
      */
     public function storeFromPayload(array $payload): FaceDetection
     {
-        $name = $payload['name'] ?? null;
-        // accept either 'id', 'cust_id' or 'customer_id' for the customer id
-        $custCode = $payload['id'] ?? ($payload['cust_id'] ?? ($payload['customer_id'] ?? null));
-        // accept either 'recommendations' (array) or 'recommendation' (string)
-        $recommendation = $payload['recommendations'] ?? ($payload['recommendation'] ?? null);
-        $metadata = $payload['metadata'] ?? [];
+        // 1. Ambil customer code (prioritas ke customer_id)
+        $custCode = $payload['customer_id']
+            ?? ($payload['cust_id'] ?? ($payload['id'] ?? null));
 
-        // normalize metadata to array
-        if (! is_array($metadata)) {
-            $metadata = ['raw_metadata' => $metadata];
+        // 2. Ambil recommendations (array of objects)
+        $recommendations = $payload['recommendations'] ?? [];
+
+        // 3. Metadata dasar (simpan payload AI)
+        $metadata = [
+            'timestamp' => $payload['timestamp'] ?? now()->toISOString(),
+            'status' => $payload['status'] ?? 'unknown',
+        ];
+
+        // Simpan raw recommendations ke metadata
+        if (!empty($recommendations)) {
+            $metadata['recommendations'] = $recommendations;
         }
 
+        // 4. Cari customer
         $customer = null;
         if ($custCode) {
             $customer = Customer::where('cust_code', $custCode)->first();
             if ($customer) {
-                $metadata['matched_by'] = 'cust_id';
-            }
-        }
-
-        // 2. Fallback: match by name
-        if (!$customer && $name) {
-            $customer = Customer::where('name', $name)->first();
-            if ($customer) {
-                $metadata['matched_by'] = 'name';
+                $metadata['matched_by'] = 'customer_id';
             }
         }
 
@@ -44,29 +48,20 @@ class FaceDetectionService
             $metadata['matched_by'] = 'none';
         }
 
-        // attach recommendation(s) into metadata if provided
-        if ($recommendation) {
-            $metadata['recommendations'] = $recommendation;
-        }
-
-        // if matched customer exists and recommendation provided, save to customer.rekomendasi
-        if ($customer && $recommendation) {
-            if (is_array($recommendation)) {
-                $customer->rekomendasi = implode('; ', $recommendation);
-            } else {
-                $customer->rekomendasi = $recommendation;
-            }
+        // 5. (OPSIONAL) Simpan rekomendasi ringkas ke customer table
+        if ($customer && !empty($recommendations)) {
+            $customer->rekomendasi = collect($recommendations)
+                ->sortBy('rank')
+                ->map(fn ($r) => $r['product_name'] ?? 'Unknown')
+                ->implode(', ');
             $customer->save();
         }
 
+        // 6. Simpan FaceDetection event
         return FaceDetection::create([
-            'name' => $name,
+            'name' => $customer?->name,   // ambil dari customer
             'customer_id' => $customer?->id,
-            
-            // 'photo' => $customer?->photo, // ⬅️ ambil foto dari customer
-            'metadata' => $metadata,
+            'metadata' => $metadata,      // JSON full AI payload (aman & fleksibel)
         ]);
-
-        // return $d;
     }
 }

@@ -158,10 +158,24 @@
 
                             // show customer.rekomendasi if present
                             const custRecEl = document.getElementById('customer-recommendations');
-                            if (cust.rekomendasi) {
-                                custRecEl.innerText = cust.rekomendasi;
+                            custRecEl.innerHTML = '';
+
+                            if (Array.isArray(cust.rekomendasi) && cust.rekomendasi.length) {
+                                cust.rekomendasi
+                                    .sort((a, b) => a.rank - b.rank)
+                                    .forEach(rec => {
+                                        const div = document.createElement('div');
+                                        div.className = 'rec-item';
+                                        div.innerHTML = `
+                                            <div class="rec-title">${rec.rank}. ${rec.product_name}</div>
+                                            <div class="rec-confidence">
+                                                Confidence: ${(rec.confidence * 100).toFixed(1)}%
+                                            </div>
+                                        `;
+                                        custRecEl.appendChild(div);
+                                    });
                             } else {
-                                custRecEl.innerText = '-';
+                                custRecEl.innerHTML = '<em>-</em>';
                             }
                         }
                     } else {

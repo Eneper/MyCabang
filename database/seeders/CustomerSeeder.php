@@ -54,7 +54,7 @@ class CustomerSeeder extends Seeder
             'user_id' => $nasabah3->id,
             'name' => 'Wiwit',
             'cust_code' => 'CUST00008',
-            'photo' => null,
+            'photo' => 'storage/Juwita_Nethania_Chandra.png',
         ]);
     }
 }
