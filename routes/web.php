@@ -49,6 +49,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['role:nasabah'])->group(function () {
         Route::get('/customer/queue', [\App\Http\Controllers\Customer\CustomerQueueController::class, 'index'])->name('nasabah.dashboard');
         Route::get('/customer/api/queue-status', [\App\Http\Controllers\Customer\CustomerQueueController::class, 'queueStatus'])->name('customer.api.queue.status');
+        // Customer notifications (view + JSON)
+        Route::get('/customer/notifications', [\App\Http\Controllers\Customer\CustomerQueueController::class, 'notifications'])
+            ->name('user.notifications');
     });
 });
 
