@@ -8,46 +8,33 @@
         </div>
 
         <div class="d-flex justify-content-center">
-            <div class="card shadow-sm w-100" style="max-width:760px;">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="card shadow-sm w-100" style="max-width:1200px;">
+                <div class="card-body d-flex gap-4" style="min-height: 600px;">
+                    <!-- Nasabah yang sedang dilayani (Kiri) -->
+                    <div style="flex: 1; overflow-y: auto;">
                         <h2 class="h5 mb-0 text-bca">Nasabah yang sedang dilayani</h2>
-                        <div class="text-muted small">Auto-refresh setiap 3 detik</div>
-                    </div>
 
-                    <div id="detail-empty" class="text-center text-muted py-5 border rounded">
-                        <p class="h6 mb-1">Belum ada nasabah yang sedang dilayani</p>
-                        <p class="small mb-0">Tunggu sampai pelanggan dipanggil.</p>
-                    </div>
+                        <div id="detail-empty" class="text-center text-muted py-5 border rounded mt-3">
+                            <p class="h6 mb-1">Belum ada nasabah yang sedang dilayani</p>
+                            <p class="small mb-0">Tunggu sampai pelanggan dipanggil.</p>
+                        </div>
 
-                    <div id="detail-box" class="d-none">
-                        <div class="d-flex align-items-start gap-4">
-                            <div class="me-3">
-                                <img id="detail-photo" src="https://via.placeholder.com/160" alt="photo" class="img-fluid rounded" style="width:112px;height:112px;object-fit:cover;">
+                        <div id="detail-box" class="d-none">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <img id="detail-photo" src="https://via.placeholder.com/160" alt="photo" class="rounded img-fluid" style="width:128px;height:128px;object-fit:cover;margin-right:1rem;">
+                                <div>
+                                    <h3 id="detail-name" class="h5 mb-0">Nama Nasabah</h3>
+                                    <p id="detail-email" class="small text-muted mb-0">email@example.com</p>
+                                </div>
                             </div>
 
-                            <div class="flex-fill">
-                                <div class="d-flex align-items-center">
-                                    <h3 id="detail-name" class="h5 mb-0">Nama Nasabah</h3>
-                                    <span id="priority-badge" class="badge bg-warning text-dark ms-2">Prioritas</span>
-                                </div>
+                            <div class="card-body border-top">
+                                <h6>Profil</h6>
+                                <p id="detail-profile" class="mb-3" style="text-align: justify;">-</p>
 
-                                <p id="detail-email" class="text-muted small mb-2">email@example.com</p>
-
-                                <div class="row g-3 text-sm text-muted">
-                                    <div class="col-6">
-                                        <div class="small text-uppercase text-muted">Profil</div>
-                                        <div id="detail-profile" class="mt-1">-</div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="small text-uppercase text-muted">Rekomendasi</div>
-                                        <div id="detail-rekomendasi" class="mt-1">-</div>
-                                    </div>
-                                </div>
-
-                                <div class="mt-3 d-flex align-items-center gap-2">
-                                    <button id="btn-add-note" class="btn btn-outline-secondary btn-sm">Tambah Catatan</button>
-                                    <a id="detail-view-link" href="#" class="ms-auto small text-decoration-none">Lihat Halaman</a>
+                                <h6>Rekomendasi Produk & Alasan</h6>
+                                <div id="suggestions" class="list-group list-group-flush">
+                                    <!-- Populated by JS -->
                                 </div>
 
                                 <div class="mt-3 d-flex gap-2">
@@ -55,24 +42,13 @@
                                     <button id="btn-recall" class="btn btn-outline-secondary">Panggil ulang</button>
                                     <button id="btn-finish" class="btn btn-success">Selesai</button>
                                 </div>
-
-                                <hr class="my-3">
-
-                                <div>
-                                    <h6 class="mb-2">Saran Rekomendasi</h6>
-                                    <div id="suggestions" class="list-group list-group-flush">
-                                        <div class="list-group-item">Tabungan X — cocok berdasarkan histori</div>
-                                        <div class="list-group-item">Deposito Y — promosi 3 bulan</div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <hr class="my-3">
-
-                    <div>
-                        <h6 class="mb-2">Antrian Menunggu</h6>
+                    <!-- Antrian Menunggu (Kanan) -->
+                    <div style="flex: 1; overflow-y: auto; border-left: 1px solid #ddd; padding-left: 1rem;">
+                        <h6 class="mb-3">Antrian Menunggu</h6>
                         <div id="queue-list" class="list-group">
                             <!-- populated by JS -->
                         </div>
@@ -132,13 +108,59 @@
             document.getElementById('detail-name').innerText = c.name;
             document.getElementById('detail-email').innerText = c.email || '-';
             document.getElementById('detail-profile').innerText = c.profile || '-';
-            document.getElementById('detail-rekomendasi').innerText = c.rekomendasi || '-';
             document.getElementById('detail-photo').src = c.photo ? '/storage/' + c.photo : 'https://via.placeholder.com/160';
-            document.getElementById('detail-view-link').href = '/teller/customers/' + c.id;
             box.dataset.current = c.id;
+        }
 
-            // priority badge (all customers are priority)
-            document.getElementById('priority-badge').classList.remove('d-none');
+        async function updateSuggestions(prods) {
+            const list = document.getElementById('suggestions');
+            list.innerHTML = '';
+
+            if (prods.length) {
+                prods.forEach((p, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'list-group-item';
+                    const hasExplanation = p.explanation && p.explanation.trim();
+
+                    if (hasExplanation) {
+                        item.innerHTML = `
+                            <div class="d-flex align-items-start justify-content-between gap-2">
+                                <div class="flex-fill">
+                                    <div class="fw-bold">${p.title}</div>
+                                    <div class="small text-muted mb-2">${p.reason}</div>
+                                    <div class="small text-secondary" id="exp-${idx}" style="display:none;">
+                                        <em>${p.explanation}</em>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-info toggle-exp" data-idx="${idx}">Detail</button>
+                            </div>
+                        `;
+                    } else {
+                        item.innerHTML = `
+                            <div>
+                                <div class="fw-bold">${p.title}</div>
+                                <div class="small text-muted">${p.reason}</div>
+                            </div>
+                        `;
+                    }
+
+                    list.appendChild(item);
+                });
+
+                // Attach toggle handlers
+                document.querySelectorAll('.toggle-exp').forEach(btn => {
+                    btn.onclick = function(e) {
+                        e.preventDefault();
+                        const idx = this.dataset.idx;
+                        const expEl = document.getElementById('exp-' + idx);
+                        const isHidden = expEl.style.display === 'none';
+                        expEl.style.display = isHidden ? 'block' : 'none';
+                        this.innerText = isHidden ? 'Tutup' : 'Detail';
+                    };
+                });
+            } else {
+                list.innerHTML = '<div class="list-group-item text-muted">Tidak ada rekomendasi</div>';
+            }
         }
 
         async function nextCustomer() {
@@ -167,8 +189,6 @@
             const data = await fetchQueue();
             if (!data.customers || !data.customers.length || !data.current) {
                 showEmptyDetail();
-                // still populate waiting list
-                populateQueueList(data.customers || [], data.current);
                 return;
             }
 
@@ -178,26 +198,20 @@
                 showDetail(current);
                 // update recommendations
                 const prods = await fetchRecommendationFor(current.id);
-                const list = document.getElementById('suggestions');
-                list.innerHTML = '';
-                if (prods.length) {
-                    prods.forEach(p => {
-                        const el = document.createElement('div');
-                        el.className = 'list-group-item';
-                        el.innerHTML = `<strong>${p.title}</strong> — <span class="small text-muted">${p.reason}</span>`;
-                        list.appendChild(el);
-                    });
-                    document.getElementById('detail-rekomendasi').innerText = prods.map(p=>p.title).join(', ');
-                } else {
-                    list.innerHTML = '<div class="list-group-item text-muted">Tidak ada rekomendasi</div>';
-                    document.getElementById('detail-rekomendasi').innerText = '-';
-                }
+                await updateSuggestions(prods);
             } else {
                 showEmptyDetail();
             }
+        }
 
-            // populate waiting list
-            populateQueueList(data.customers || [], data.current);
+        // light poll: update queue list only, tidak fetch rekomendasi
+        async function updateQueueOnly() {
+            try {
+                const data = await fetchQueue();
+                populateQueueList(data.customers || [], data.current);
+            } catch (e) {
+                console.error('updateQueueOnly error', e);
+            }
         }
 
         function populateQueueList(customers, currentId) {
@@ -211,9 +225,6 @@
                         <div class="fw-bold">${c.name}</div>
                         <div class="small text-muted">ID: ${c.id} — ${c.email || ''}</div>
                     </div>
-                    <div class="btn-group ms-3" role="group">
-                        <button data-id="${c.id}" class="btn btn-sm btn-outline-primary btn-serve">Mulai layanan</button>
-                    </div>
                 `;
 
                 if (c.id == currentId) {
@@ -222,19 +233,6 @@
 
                 list.appendChild(item);
             });
-
-            // attach handlers
-            document.querySelectorAll('.btn-serve').forEach(b => {
-                b.onclick = async function () {
-                    const id = this.dataset.id;
-                    this.disabled = true;
-                    await fetch('/teller/api/serve/' + id, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf } });
-                    await refresh();
-                    this.disabled = false;
-                };
-            });
-
-
         }
 
         document.getElementById('btn-next').addEventListener('click', function () {
@@ -259,8 +257,8 @@
             btn.disabled = false;
         });
 
-        // initial load and poll every 3s
+        // initial load and poll queue only every 3s (tidak fetch rekomendasi)
         refresh();
-        setInterval(refresh, 3000);
+        setInterval(updateQueueOnly, 3000);
     </script>
 @endsection
