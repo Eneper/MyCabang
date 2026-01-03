@@ -2,20 +2,21 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UserQueController;
 
 Route::get('/', function () {
     return view('auth.login');
 });
 
-// Route::get('/dashboard', function () {
-//     return view('dashboard');
-// })->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+// Public webhook for MQTT brokers (optional). Brokers usually can't authenticate, so expose it publicly
+// Protect it by setting MQTT_WEBHOOK_SECRET in .env and supply the header X-MQTT-SECRET in requests.
+Route::post('/security/api/mqtt/webhook', [\App\Http\Controllers\Security\SecurityController::class, 'mqttWebhook'])->name('security.api.mqtt.webhook');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Profile (edit/update/destroy) removed — not required in this app
 
     Route::middleware(['role:teller'])->group(function () {
         Route::get('/teller/dashboard', [\App\Http\Controllers\Teller\TellerController::class, 'index'])->name('teller.dashboard');
@@ -25,11 +26,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/teller/api/queue', [\App\Http\Controllers\Teller\TellerController::class, 'queue'])->name('teller.api.queue');
         Route::post('/teller/api/serve', [\App\Http\Controllers\Teller\TellerController::class, 'serve'])->name('teller.api.serve');
         Route::post('/teller/api/serve/next', [\App\Http\Controllers\Teller\TellerController::class, 'serveNext'])->name('teller.api.serve.next');
+
+        // Additional API endpoints used by the teller dashboard JS
         Route::post('/teller/api/finish', [\App\Http\Controllers\Teller\TellerController::class, 'finish'])->name('teller.api.finish');
-        Route::get('/teller/api/recommendation/{customer}', [\App\Http\Controllers\Teller\TellerController::class, 'showRecommendation'])->name('teller.api.recommendation');
-        // convenience endpoints
-        Route::post('/teller/api/serve/{customer}', [\App\Http\Controllers\Teller\TellerController::class, 'serveById'])->name('teller.api.serve.byid');
-        Route::get('/teller/api/customer/{customer}', [\App\Http\Controllers\Teller\TellerController::class, 'showCustomer'])->name('teller.api.customer');
+        Route::get('/teller/api/customer/{id}', [\App\Http\Controllers\Teller\TellerController::class, 'showCustomer'])->name('teller.api.customer.show');
+        Route::get('/teller/api/recommendation/{id}', [\App\Http\Controllers\Teller\TellerController::class, 'showRecommendation'])->name('teller.api.recommendation');
     });
     Route::middleware(['role:security'])->group(function () {
         Route::get('/security/dashboard', [\App\Http\Controllers\Security\SecurityController::class, 'index'])->name('security.dashboard');
@@ -44,21 +45,13 @@ Route::middleware('auth')->group(function () {
 // optional HTTP webhook for MQTT brokers or bridges to POST detection results
 // This route is intentionally unprotected by auth because brokers usually can't authenticate.
 // Protect it by setting MQTT_WEBHOOK_SECRET in .env and supplying the header X-MQTT-SECRET in requests.
-Route::post('/security/api/mqtt/webhook', [\App\Http\Controllers\Security\SecurityController::class, 'mqttWebhook'])->name('security.api.mqtt.webhook');
-    Route::middleware(middleware: ['role:nasabah'])->group(function () {
+
+    Route::middleware(['role:nasabah'])->group(function () {
         Route::get('/customer/queue', function () {
             return view('user.userqueue');
         })->name('nasabah.dashboard');
     });
-
-    Route::middleware(['role:nasabah'])->group(function () {
-
-        Route::get('/customer/queue', [UserQueController::class, 'index'])->name('user.queue.index');
-        Route::get('/customer/queue/{id}', [UserQueController::class, 'show'])->name('user.queue.show');
-        Route::get('/customer/notifications', [UserQueController::class, 'notifications'])->name('user.notifications');
-    });
 });
-
 
 
 require __DIR__.'/auth.php';

@@ -213,7 +213,6 @@
                     </div>
                     <div class="btn-group ms-3" role="group">
                         <button data-id="${c.id}" class="btn btn-sm btn-outline-primary btn-serve">Mulai layanan</button>
-                        <button data-id="${c.id}" class="btn btn-sm btn-outline-secondary btn-show">Lihat</button>
                     </div>
                 `;
 
@@ -235,28 +234,7 @@
                 };
             });
 
-            document.querySelectorAll('.btn-show').forEach(b => {
-                b.onclick = async function () {
-                    const id = this.dataset.id;
-                    const cust = await fetchCustomer(id);
-                    if (cust) {
-                        showDetail(cust);
-                        const prods = await fetchRecommendationFor(cust.id);
-                        const list = document.getElementById('suggestions');
-                        list.innerHTML = '';
-                        if (prods.length) {
-                            prods.forEach(p => {
-                                const el = document.createElement('div');
-                                el.className = 'list-group-item';
-                                el.innerHTML = `<strong>${p.title}</strong> — <span class="small text-muted">${p.reason}</span>`;
-                                list.appendChild(el);
-                            });
-                        } else {
-                            list.innerHTML = '<div class="list-group-item text-muted">Tidak ada rekomendasi</div>';
-                        }
-                    }
-                };
-            });
+
         }
 
         document.getElementById('btn-next').addEventListener('click', function () {

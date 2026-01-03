@@ -7,53 +7,107 @@ use App\Services\FaceDetectionService;
 
 class SubscribeMqtt extends Command
 {
-    protected $signature = 'mqtt:subscribe {topic=security/faces}';
-    protected $description = 'Subscribe to MQTT topic and store face detections (requires php-mqtt/client)';
+    protected $signature = 'mqtt:subscribe {topic?}';
+    protected $description = 'Subscribe to MQTT topic and store face detections (broker.hivemq.com:1883)';
 
     public function handle(FaceDetectionService $svc)
     {
-        // lazy check for library
+        // Check for required library
         if (!class_exists('\PhpMqtt\Client\MqttClient')) {
             $this->error("php mqtt client not installed. Run: composer require php-mqtt/client");
             return 1;
         }
 
-        $host = env('MQTT_HOST', '127.0.0.1');
-        $port = env('MQTT_PORT', 1883);
+        $host = env('MQTT_HOST', 'broker.hivemq.com');
+        $port = (int) env('MQTT_PORT', 1883);
+        $topic = $this->argument('topic') ?: 'bank/cabang01/priority_alert';
         $clientId = 'mycabang-' . uniqid();
-        $topic = $this->argument('topic');
 
         $this->info("Connecting to MQTT {$host}:{$port} topic={$topic}");
 
         $connectionSettings = new \PhpMqtt\Client\ConnectionSettings();
+        $client = new \PhpMqtt\Client\MqttClient($host, $port, $clientId);
 
-        $client = new \PhpMqtt\Client\MqttClient($host, (int)$port, $clientId);
+        // graceful shutdown flag
+        $stop = false;
+
+        // Attempt to register signal handlers when available (Unix)
+        if (function_exists('pcntl_async_signals')) {
+            pcntl_async_signals(true);
+            if (defined('SIGINT')) {
+                pcntl_signal(SIGINT, function () use (&$stop, $client) {
+                    $this->info('SIGINT received, disconnecting...');
+                    $stop = true;
+                    try { $client->interrupt(); } catch (\Throwable $e) { }
+                });
+            }
+            if (defined('SIGTERM')) {
+                pcntl_signal(SIGTERM, function () use (&$stop, $client) {
+                    $this->info('SIGTERM received, disconnecting...');
+                    $stop = true;
+                    try { $client->interrupt(); } catch (\Throwable $e) { }
+                });
+            }
+        }
 
         try {
             $client->connect($connectionSettings, true);
 
-            $client->subscribe($topic, function ($topic, $message) use ($svc) {
+            $client->subscribe($topic, function ($topic, $message) {
                 $this->info("Message received on {$topic}");
-                // expect JSON payload
+
                 $payload = @json_decode($message, true);
                 if (!is_array($payload)) {
                     $this->warn('Invalid payload: must be JSON');
                     return;
                 }
 
-                $svc->storeFromPayload($payload);
-                $this->info('Stored detection');
+                $formatted = $this->validateAndFormatPayload($payload);
+                if (! $formatted) {
+                    $this->warn('Invalid payload: requires "name" and "id"');
+                    return;
+                }
+
+                $this->info($formatted);
             }, 0);
 
-            // keep listening
-            $client->loop(true);
+            // Run loop until interrupted
+            while (! $stop) {
+                $client->loop(true);
+                // small sleep to avoid tight loop if loop() returns
+                usleep(100000);
+            }
 
-            $client->disconnect();
+            // Disconnect cleanly
+            try {
+                $client->disconnect();
+            } catch (\Throwable $e) {
+                $this->warn('Error during disconnect: ' . $e->getMessage());
+            }
         } catch (\Exception $e) {
             $this->error('MQTT error: ' . $e->getMessage());
             return 1;
         }
 
+        $this->info('Subscriber stopped');
         return 0;
+    }
+
+    /**
+     * Validate payload and return formatted string or null if invalid.
+     *
+     * @param array $payload
+     * @return string|null
+     */
+    public function validateAndFormatPayload(array $payload): ?string
+    {
+        if (empty($payload['name']) || empty($payload['id'])) {
+            return null;
+        }
+
+        $name = $payload['name'];
+        $id = $payload['id'];
+
+        return "Received data - name: {$name}, id: {$id}";
     }
 }

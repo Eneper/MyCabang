@@ -66,4 +66,36 @@ class TellerControllerTest extends TestCase
         $this->assertEquals($customers->get(1)->id, $next);
         $this->assertEquals($next, Cache::get('teller_current_customer'));
     }
+
+    public function test_finish_marks_customer_and_advances()
+    {
+        $teller = User::factory()->create(['role' => 'teller']);
+        $customers = Customer::factory()->count(3)->create();
+
+        // set current to first
+        Cache::put('teller_current_customer', $customers->first()->id);
+
+        $response = $this->actingAs($teller)->postJson('/teller/api/finish', ['customer_id' => $customers->first()->id], ['X-CSRF-TOKEN' => csrf_token()]);
+        $response->assertStatus(200)->assertJsonStructure(['finished','current']);
+
+        $this->assertContains($customers->first()->id, Cache::get('teller_finished'));
+    }
+
+    public function test_showCustomer_returns_payload()
+    {
+        $teller = User::factory()->create(['role' => 'teller']);
+        $c = Customer::factory()->create(['name' => 'Cust A']);
+
+        $response = $this->actingAs($teller)->getJson('/teller/api/customer/' . $c->id);
+        $response->assertStatus(200)->assertJsonPath('id', $c->id)->assertJsonPath('name', 'Cust A');
+    }
+
+    public function test_showRecommendation_returns_products()
+    {
+        $teller = User::factory()->create(['role' => 'teller']);
+        $c = Customer::factory()->create();
+
+        $response = $this->actingAs($teller)->getJson('/teller/api/recommendation/' . $c->id);
+        $response->assertStatus(200)->assertJsonStructure(['customer_id','products']);
+    }
 }

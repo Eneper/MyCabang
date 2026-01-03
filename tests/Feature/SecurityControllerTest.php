@@ -61,16 +61,29 @@ class SecurityControllerTest extends TestCase
         $this->assertContains($d->customer_id, $queue);
     }
 
+    public function test_confirm_notifies_customer_user_if_linked()
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $sec = User::factory()->create(['role' => 'security']);
+        $user = User::factory()->create(['role' => 'nasabah']);
+        $cust = Customer::factory()->create(['user_id' => $user->id]);
+        $d = FaceDetection::create(['name' => 'Carol']);
+
+        $res = $this->actingAs($sec)->postJson('/security/api/faces/' . $d->id . '/confirm', ['customer_id' => $cust->id], ['X-CSRF-TOKEN' => csrf_token()]);
+        $res->assertStatus(200)->assertJson(['success' => true]);
+
+        \Illuminate\Support\Facades\Notification::assertSentTo($user, \App\Notifications\QueueAssignedNotification::class);
+    }
+
     public function test_mqtt_webhook_stores_detection()
     {
+        // Ensure webhook is accessible in tests regardless of env secrets
+        config(['mqtt.webhook_secret' => null]);
+
         $payload = ['name' => 'WebhookUser', 'cust_id' => null, 'metadata' => ['camera' => 'c1']];
 
-        $headers = [];
-        if (config('mqtt.webhook_secret')) {
-            $headers['X-MQTT-SECRET'] = config('mqtt.webhook_secret');
-        }
-
-        $res = $this->postJson('/security/api/mqtt/webhook', $payload, $headers);
+        $res = $this->postJson('/security/api/mqtt/webhook', $payload);
         $res->assertStatus(200)->assertJson(['success' => true]);
 
         $this->assertDatabaseHas('face_detections', ['name' => 'WebhookUser']);

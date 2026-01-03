@@ -61,6 +61,18 @@ class SecurityController extends Controller
         $queue[] = $d->customer_id;
         Cache::put('security_queue', $queue);
 
+        // Notify user account if this customer is linked to a user
+        if ($d->customer_id) {
+            try {
+                $customer = \App\Models\Customer::find($d->customer_id);
+                if ($customer && $customer->user) {
+                    $customer->user->notify(new \App\Notifications\QueueAssignedNotification($d->id, $customer->id));
+                }
+            } catch (\Throwable $e) {
+                // swallow errors to avoid breaking the API; logging could be added here
+            }
+        }
+
         return response()->json(['success' => true, 'detection' => $d, 'queue' => $queue]);
     }
 
@@ -68,7 +80,8 @@ class SecurityController extends Controller
     public function mqttWebhook(Request $request, FaceDetectionService $svc)
     {
         // optional secret header
-        $secret = env('MQTT_WEBHOOK_SECRET');
+        // prefer configuration over direct env() so tests can override via config()
+        $secret = config('mqtt.webhook_secret');
         if ($secret) {
             $header = $request->header('X-MQTT-SECRET');
             if (!$header || $header !== $secret) {

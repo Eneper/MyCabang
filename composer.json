@@ -8,7 +8,8 @@
     "require": {
         "php": "^8.2",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/tinker": "^2.10.1",
+        "php-mqtt/client": "^2.3"
     },
     "suggest": {
         "php-mqtt/client": "(optional) MQTT client for direct subscription: run 'composer require php-mqtt/client' to enable 'php artisan mqtt:subscribe'"

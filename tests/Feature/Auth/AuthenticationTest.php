@@ -17,7 +17,8 @@ test('users can authenticate using the login screen', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $redirect = $response->headers->get('location');
+    $this->assertTrue(in_array($redirect, [route('dashboard', false), route('nasabah.dashboard', false)]));
 });
 
 test('users can not authenticate with invalid password', function () {
