@@ -10,7 +10,8 @@
             <div class="col-md-8">
                 <div class="card">
                     <div class="card-body p-0">
-                        <img id="capture-img" src="https://via.placeholder.com/800x400?text=Live+Feed" alt="capture" class="img-fluid w-100" style="object-fit:cover;">
+                        <img id="capture-img" src="https://via.placeholder.com/800x400?text=Live+Feed" alt="capture"
+                            class="img-fluid w-100" style="object-fit:cover;">
                     </div>
                 </div>
 
@@ -25,7 +26,8 @@
                                 <div id="customer-info-box" class="d-none">
                                     <div class="row mb-3">
                                         <div class="col-md-3">
-                                            <img id="customer-photo" src="https://via.placeholder.com/150" alt="photo" class="img-fluid rounded" style="height: 120px; object-fit: cover;">
+                                            <img id="customer-photo" src="https://via.placeholder.com/150" alt="photo"
+                                                class="img-fluid rounded" style="height: 120px; object-fit: cover;">
                                         </div>
                                         <div class="col-md-9">
                                             <div class="mb-2">
@@ -43,13 +45,15 @@
                                         </div>
                                     </div>
                                     <div class="mt-3">
-                                        <button id="btn-confirm-customer" class="btn btn-bca btn-sm">Konfirmasi & Buat Antrian</button>
-                                        <button id="btn-reject-customer" class="btn btn-outline-secondary btn-sm">Batalkan</button>
+                                        <button id="btn-confirm-customer" class="btn btn-bca btn-sm">Konfirmasi & Buat
+                                            Antrian</button>
+                                        <button id="btn-reject-customer"
+                                            class="btn btn-outline-secondary btn-sm">Batalkan</button>
                                     </div>
-                                            <div class="mb-2">
-                                                <label class="form-label small text-muted mb-1">Rekomendasi</label>
-                                                <div id="customer-recommendations">-</div>
-                                            </div>
+                                    <div class="mb-2">
+                                        <label class="form-label small text-muted mb-1">Rekomendasi</label>
+                                        <div id="customer-recommendations">-</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -59,7 +63,8 @@
                 <div class="card mt-3">
                     <div class="card-body">
                         <h5 class="h6">Detail Metadata</h5>
-                        <div id="capture-detail" class="small text-muted" style="max-height: 200px; overflow-y: auto;">Tidak ada capture</div>
+                        <div id="capture-detail" class="small text-muted" style="max-height: 200px; overflow-y: auto;">Tidak
+                            ada capture</div>
                     </div>
                 </div>
             </div>
@@ -133,7 +138,7 @@
                     const res = await fetch('/security/api/customer/' + d.customer_id);
                     if (res.ok) {
                         const customerData = await res.json();
-                    if (customerData.customer) {
+                        if (customerData.customer) {
                             const cust = customerData.customer;
                             console.log('Customer data retrieved:', cust);
 
@@ -156,24 +161,39 @@
                                 ...metadata
                             };
 
-                            // show customer.rekomendasi if present
+                            // show customer.rekomendasi if present (accepts array of objects or plain string)
                             const custRecEl = document.getElementById('customer-recommendations');
                             custRecEl.innerHTML = '';
 
+                            const escapeHtml = (str) => String(str)
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;')
+                                .replace(/"/g, '&quot;')
+                                .replace(/'/g, '&#039;');
+
+                            const renderRecObject = (rec) => {
+                                const title = rec.product_name ?? rec.title ?? rec.name ?? null;
+                                const rank = rec.rank ?? '';
+                                const confidence = (typeof rec.confidence === 'number') ? `Confidence: ${(rec.confidence * 100).toFixed(1)}%` : '';
+                                return `
+                                        <div class="rec-item">
+                                            <div class="rec-title">${escapeHtml(rank ? (rank + '. ' + title) : (title ?? JSON.stringify(rec)))}</div>
+                                            ${confidence ? `<div class="rec-confidence">${escapeHtml(confidence)}</div>` : ''}
+                                        </div>
+                                    `;
+                            };
+
                             if (Array.isArray(cust.rekomendasi) && cust.rekomendasi.length) {
                                 cust.rekomendasi
-                                    .sort((a, b) => a.rank - b.rank)
+                                    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
                                     .forEach(rec => {
-                                        const div = document.createElement('div');
-                                        div.className = 'rec-item';
-                                        div.innerHTML = `
-                                            <div class="rec-title">${rec.rank}. ${rec.product_name}</div>
-                                            <div class="rec-confidence">
-                                                Confidence: ${(rec.confidence * 100).toFixed(1)}%
-                                            </div>
-                                        `;
-                                        custRecEl.appendChild(div);
+                                        const wrapper = document.createElement('div');
+                                        wrapper.innerHTML = renderRecObject(rec);
+                                        custRecEl.appendChild(wrapper);
                                     });
+                            } else if (typeof cust.rekomendasi === 'string' && cust.rekomendasi.trim()) {
+                                custRecEl.innerText = cust.rekomendasi;
                             } else {
                                 custRecEl.innerHTML = '<em>-</em>';
                             }
@@ -198,8 +218,21 @@
                 const recEl = document.getElementById('customer-recommendations');
                 if (metadata.recommendations) {
                     const recs = metadata.recommendations;
-                    if (Array.isArray(recs)) {
-                        recEl.innerHTML = '<ul>' + recs.map(r => '<li>' + String(r).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('') + '</ul>';
+                    const escapeHtml = (str) => String(str)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+
+                    if (Array.isArray(recs) && recs.length) {
+                        recEl.innerHTML = '<ul>' + recs.map(r => {
+                            if (r && typeof r === 'object') {
+                                const name = r.product_name ?? r.title ?? r.name ?? JSON.stringify(r);
+                                return '<li>' + escapeHtml(name) + '</li>';
+                            }
+                            return '<li>' + escapeHtml(String(r)) + '</li>';
+                        }).join('') + '</ul>';
                     } else {
                         recEl.innerText = String(recs);
                     }
