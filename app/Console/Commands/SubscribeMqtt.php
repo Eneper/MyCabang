@@ -20,7 +20,7 @@ class SubscribeMqtt extends Command
 
         $host = env('MQTT_HOST', 'broker.hivemq.com');
         $port = (int) env('MQTT_PORT', 1883);
-        $topic = $this->argument('topic') ?: 'bank/cabang01/priority_alert';
+        $topic = $this->argument('topic') ?: 'bank/cabang01/priority_data';
         $clientId = 'mycabang-' . uniqid();
 
         $this->info("Connecting to MQTT {$host}:{$port} topic={$topic}");
@@ -53,7 +53,7 @@ class SubscribeMqtt extends Command
         try {
             $client->connect($connectionSettings, true);
 
-            $client->subscribe($topic, function ($topic, $message) {
+            $client->subscribe($topic, function ($topic, $message) use ($svc) {
                 $this->info("Message received on {$topic}");
 
                 $payload = @json_decode($message, true);
@@ -69,6 +69,12 @@ class SubscribeMqtt extends Command
                 }
 
                 $this->info($formatted);
+
+                // store to DB and notify dashboard
+                $d = $this->processPayload($payload, $svc);
+                if ($d) {
+                    $this->info('Stored detection id: ' . $d->id);
+                }
             }, 0);
 
             // Run loop until interrupted
@@ -109,5 +115,33 @@ class SubscribeMqtt extends Command
         $id = $payload['id'];
 
         return "Received data - name: {$name}, id: {$id}";
+    }
+
+    /**
+     * Store payload via FaceDetectionService and broadcast to dashboard (security channel)
+     *
+     * @param array $payload
+     * @param FaceDetectionService $svc
+     * @return \App\Models\FaceDetection|null
+     */
+    public function processPayload(array $payload, FaceDetectionService $svc)
+    {
+        if (! $this->validateAndFormatPayload($payload)) {
+            return null;
+        }
+
+        try {
+            $d = $svc->storeFromPayload($payload);
+            event(new \App\Events\FaceDetected($d));
+            return $d;
+        } catch (\Throwable $e) {
+            // In tests prefer to bubble up the exception for visibility
+            if (app()->runningUnitTests()) {
+                throw $e;
+            }
+
+            \Illuminate\Support\Facades\Log::error('Failed to store/broadcast detection: ' . $e->getMessage());
+            return null;
+        }
     }
 }

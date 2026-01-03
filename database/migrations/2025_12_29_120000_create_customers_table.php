@@ -15,9 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
             $table->string('name');
-            $table->string('email')->nullable();
+            $table->string('cust_code')->unique();
             $table->string('photo')->nullable();
-            $table->text('profile')->nullable();
             $table->text('rekomendasi')->nullable();
             $table->timestamps();
         });

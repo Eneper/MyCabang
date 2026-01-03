@@ -12,6 +12,20 @@ class CustomerSeeder extends Seeder
      */
     public function run(): void
     {
-        Customer::factory()->count(10)->create();
+        Customer::create([
+            'name' => 'Enver',
+            'cust_code' => 'CUST00006',
+        ]);
+
+        Customer::create([
+            'name' => 'Valdo',
+            'cust_code' => 'CUST00007',
+        ]);
+
+        Customer::create([
+            'name' => 'Wiwit',
+            'cust_code' => 'CUST00008',
+        ]);
+
     }
 }

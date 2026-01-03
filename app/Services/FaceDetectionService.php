@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Services;
-
+use App\Models\Customer;
 use App\Models\FaceDetection;
 
 class FaceDetectionService
@@ -14,16 +14,42 @@ class FaceDetectionService
     {
         $name = $payload['name'] ?? null;
         // accept either 'id', 'cust_id' or 'customer_id' for the customer id
-        $customerId = $payload['id'] ?? $payload['cust_id'] ?? $payload['customer_id'] ?? null;
-        $metadata = $payload['metadata'] ?? null;
+        $custCode = $payload['id'] ?? ($payload['cust_id'] ?? ($payload['customer_id'] ?? null));
+        $recommendation = $payload['recommendation'] ?? null;
+        $metadata = $payload['metadata'] ?? [];
 
-        $d = FaceDetection::create([
+        // normalize metadata to array
+        if (! is_array($metadata)) {
+            $metadata = ['raw_metadata' => $metadata];
+        }
+
+        $customer = null;
+        if ($custCode) {
+            $customer = Customer::where('cust_code', $custCode)->first();
+            if ($customer) {
+                $metadata['matched_by'] = 'cust_id';
+            }
+        }
+
+        // 2. Fallback: match by name
+        if (!$customer && $name) {
+            $customer = Customer::where('name', $name)->first();
+            if ($customer) {
+                $metadata['matched_by'] = 'name';
+            }
+        }
+
+        if (!$customer) {
+            $metadata['matched_by'] = 'none';
+        }
+
+        return FaceDetection::create([
             'name' => $name,
-            'photo' => null,
+            'customer_id' => $customer?->id,
+            // 'photo' => $customer?->photo, // ⬅️ ambil foto dari customer
             'metadata' => $metadata,
-            'customer_id' => $customerId,
         ]);
 
-        return $d;
+        // return $d;
     }
 }
