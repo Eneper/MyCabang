@@ -149,7 +149,7 @@
                             document.getElementById('customer-status').className = 'badge bg-success';
 
                             if (cust.photo) {
-                                document.getElementById('customer-photo').src = '/storage/' + cust.photo;
+                                document.getElementById('customer-photo').src = '/' + cust.photo;
                             } else {
                                 document.getElementById('customer-photo').src = 'https://via.placeholder.com/150';
                             }

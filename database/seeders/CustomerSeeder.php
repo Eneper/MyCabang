@@ -53,7 +53,7 @@ class CustomerSeeder extends Seeder
         Customer::create([
             'user_id' => $nasabah3->id,
             'name' => 'Wiwit',
-            'cust_code' => 'CUST00008',
+            'cust_code' => 'CUST004964',
             'photo' => 'storage/Juwita_Nethania_Chandra.png',
         ]);
     }

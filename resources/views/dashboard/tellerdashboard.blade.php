@@ -108,7 +108,7 @@
             document.getElementById('detail-name').innerText = c.name;
             document.getElementById('detail-email').innerText = c.email || '-';
             document.getElementById('detail-profile').innerText = c.profile || '-';
-            document.getElementById('detail-photo').src = c.photo ? '/storage/' + c.photo : 'https://via.placeholder.com/160';
+            document.getElementById('detail-photo').src = c.photo ? '/' + c.photo : 'https://via.placeholder.com/160';
             box.dataset.current = c.id;
         }
 
