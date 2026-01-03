@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Customer;
+use Illuminate\Http\Request;
 
 class CustomerQueueController extends Controller
 {
@@ -16,6 +17,22 @@ class CustomerQueueController extends Controller
         $customer = Customer::where('user_id', $user->id)->first();
 
         return view('user.userqueue', compact('customer'));
+    }
+
+    /**
+     * Show notifications for the authenticated customer user.
+     */
+    public function notifications(Request $request)
+    {
+        $user = Auth::user();
+
+        $notes = $user->notifications()->orderBy('created_at', 'desc')->take(50)->get();
+
+        if ($request->wantsJson()) {
+            return response()->json(['data' => $notes]);
+        }
+
+        return view('user.notifications', ['notifications' => $notes]);
     }
 
     // API: Check if customer is in queue and their position
