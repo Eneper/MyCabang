@@ -10,6 +10,8 @@ use App\Models\Customer;
 use App\Services\FaceDetectionService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use App\Models\Queue;
+use App\Models\User;
 
 class SecurityController extends Controller
 {
@@ -70,6 +72,33 @@ class SecurityController extends Controller
         $queue[] = $d->customer_id;
         Cache::put('security_queue', $queue);
 
+        // If the customer is linked to a user, or can be matched by email, create a persistent Queue record
+        try {
+            $cust = Customer::find($d->customer_id);
+            if ($cust) {
+                // attempt to link to a User by email if not already linked
+                if (!$cust->user && !empty($cust->email)) {
+                    $maybeUser = User::where('email', $cust->email)->first();
+                    if ($maybeUser) {
+                        $cust->user_id = $maybeUser->id;
+                        $cust->save();
+                    }
+                }
+
+                if ($cust->user) {
+                    // create queue entry for the user so frontend user dashboard can find it
+                    Queue::create([
+                        'user_id' => $cust->user->id,
+                        'number' => null,
+                        'status' => 'active',
+                        'note' => 'Enqueued via security confirmation',
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // swallow errors to avoid breaking the API; logging could be added here
+        }
+
         // Notify user account if this customer is linked to a user
         if ($d->customer_id) {
             try {
@@ -98,7 +127,7 @@ class SecurityController extends Controller
             }
         }
 
-        $data = $request->only(['name','photo','cust_id','metadata']);
+        $data = $request->only(['name', 'photo', 'cust_id', 'metadata']);
 
         $d = $svc->storeFromPayload($data);
 

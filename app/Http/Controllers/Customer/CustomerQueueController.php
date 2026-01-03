@@ -6,15 +6,22 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Customer;
+use App\Models\Queue;
 use Illuminate\Http\Request;
 
 class CustomerQueueController extends Controller
 {
     // Display queue page for customer
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         $customer = Customer::where('user_id', $user->id)->first();
+
+        // If the request expects JSON, return active queue rows so frontend can render
+        if ($request->wantsJson()) {
+            $queues = Queue::where('status', 'active')->orderBy('created_at')->get();
+            return response()->json(['data' => $queues]);
+        }
 
         return view('user.userqueue', compact('customer'));
     }

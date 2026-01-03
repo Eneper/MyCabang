@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teller;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Customer;
+use App\Models\Queue;
 use Illuminate\Support\Facades\Cache;
 
 class TellerController extends Controller
@@ -69,6 +70,18 @@ class TellerController extends Controller
             Cache::put('teller_current_customer', $next);
         } else {
             Cache::forget('teller_current_customer');
+        }
+
+        // Mark any Queue entries for this customer's linked user as served
+        try {
+            $customer = Customer::find($id);
+            if ($customer && $customer->user) {
+                Queue::where('user_id', $customer->user->id)
+                    ->where('status', 'active')
+                    ->update(['status' => 'served', 'served_at' => now()]);
+            }
+        } catch (\Throwable $e) {
+            // swallow errors — do not break response
         }
 
         return response()->json(['finished' => $id, 'current' => $next]);
