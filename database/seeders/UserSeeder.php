@@ -14,7 +14,8 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        //
+        // Create security officer and teller users only
+        // Nasabah users will be created by CustomerSeeder
         User::create([
             'name' => 'Admin',
             'email' => 'admin@mail.com',
@@ -28,13 +29,5 @@ class UserSeeder extends Seeder
             'password' => Hash::make('password'),
             'role' => 'teller',
         ]);
-
-        User::create([
-            'name' => 'Nasabah',
-            'email' => 'nasabah@mail.com',
-            'password' => Hash::make('password'),
-            'role' => 'nasabah',
-        ]);
-
     }
 }

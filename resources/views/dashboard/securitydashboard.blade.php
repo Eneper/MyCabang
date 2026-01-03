@@ -15,29 +15,42 @@
                 </div>
 
                 <div class="row g-3 mt-3">
-                    <div class="col-sm-4">
-                        <div class="card p-2 h-100">
-                            <small class="text-muted">Detected</small>
-                            <div id="detected-name" class="fw-medium">-</div>
-                            <div id="detected-priority" class="text-warning small">-</div>
-                        </div>
-                    </div>
-
-                    <div class="col-sm-4">
-                        <div class="card p-2 h-100">
-                            <small class="text-muted">IoT Notification</small>
-                            <div id="iot-status" class="fw-medium text-success">No notifications</div>
-                            <div class="small text-muted">Last sent: <span id="iot-last">-</span></div>
-                        </div>
-                    </div>
-
-                    <div class="col-sm-4">
-                        <div class="card p-2 h-100">
-                            <small class="text-muted">Actions</small>
-                            <div class="mt-2">
-                                <button class="btn btn-bca btn-sm" id="btn-alert">Kirim Notifikasi IoT</button>
-                                <button class="btn btn-outline-bca btn-sm" id="btn-escort">Antar ke Ruang Prioritas</button>
-                                <button class="btn btn-outline-secondary btn-sm mt-2" id="btn-refresh-detections">Refresh Detections</button>
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="mb-3">Informasi Terdeteksi</h6>
+                                <div id="customer-info-empty" class="text-center text-muted py-4">
+                                    <p class="small">Tidak ada customer terdeteksi</p>
+                                </div>
+                                <div id="customer-info-box" class="d-none">
+                                    <div class="row mb-3">
+                                        <div class="col-md-3">
+                                            <img id="customer-photo" src="https://via.placeholder.com/150" alt="photo" class="img-fluid rounded" style="height: 120px; object-fit: cover;">
+                                        </div>
+                                        <div class="col-md-9">
+                                            <div class="mb-2">
+                                                <label class="form-label small text-muted mb-1">Nama</label>
+                                                <div id="customer-name" class="fw-bold">-</div>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label small text-muted mb-1">Kode Nasabah</label>
+                                                <div id="customer-code">-</div>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label small text-muted mb-1">Status Pencocokan</label>
+                                                <div id="customer-status" class="badge bg-success">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button id="btn-confirm-customer" class="btn btn-bca btn-sm">Konfirmasi & Buat Antrian</button>
+                                        <button id="btn-reject-customer" class="btn btn-outline-secondary btn-sm">Batalkan</button>
+                                    </div>
+                                            <div class="mb-2">
+                                                <label class="form-label small text-muted mb-1">Rekomendasi</label>
+                                                <div id="customer-recommendations">-</div>
+                                            </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -45,8 +58,8 @@
 
                 <div class="card mt-3">
                     <div class="card-body">
-                        <h5 class="h6">Detail Capture</h5>
-                        <div id="capture-detail" class="small text-muted">Tidak ada capture</div>
+                        <h5 class="h6">Detail Metadata</h5>
+                        <div id="capture-detail" class="small text-muted" style="max-height: 200px; overflow-y: auto;">Tidak ada capture</div>
                     </div>
                 </div>
             </div>
@@ -65,14 +78,7 @@
     </div>
 
     <script>
-        document.getElementById('btn-alert').addEventListener('click', function () {
-            document.getElementById('iot-status').innerText = 'Notification sent';
-            document.getElementById('iot-last').innerText = new Date().toLocaleTimeString();
-        });
-
-        document.getElementById('btn-escort').addEventListener('click', function () {
-            alert('Mark as escorted (this action should be implemented in backend)');
-        });
+        let currentDetection = null;
 
         // Detections polling and UI
         async function loadDetections() {
@@ -86,56 +92,182 @@
                     list.innerHTML = '<div class="list-group-item text-muted">No detections yet.</div>';
                     return;
                 }
-                data.detections.forEach(d => {
+                data.detections.forEach((d, idx) => {
                     const el = document.createElement('button');
                     el.className = 'list-group-item list-group-item-action';
+                    if (idx === 0) el.classList.add('active'); // Highlight first item
                     el.type = 'button';
                     el.innerText = (d.name || 'Unknown') + ' — ' + new Date(d.created_at).toLocaleString();
                     el.addEventListener('click', () => showDetection(d));
                     list.appendChild(el);
+
+                    // Auto-show first detection
+                    if (idx === 0) {
+                        showDetection(d);
+                    }
                 });
             } catch (e) {
                 console.error(e);
             }
         }
 
-        function showDetection(d) {
-            document.getElementById('detected-name').innerText = d.name || '-';
-            // show detection id or linked customer id
-            document.getElementById('detected-priority').innerText = d.customer_id ? ('Customer ID: ' + d.customer_id) : ('Detection ID: ' + d.id);
+        async function showDetection(d) {
+            currentDetection = d;
+            console.log('Showing detection:', d);
+
             const img = document.getElementById('capture-img');
             if (d.photo) {
                 img.src = '/storage/' + d.photo;
             }
-            document.getElementById('capture-detail').innerText = JSON.stringify(d.metadata || {}, null, 2);
 
-            // add confirm button
-            let confirmBtn = document.getElementById('btn-confirm-detection');
-            if (!confirmBtn) {
-                confirmBtn = document.createElement('button');
-                confirmBtn.id = 'btn-confirm-detection';
-                confirmBtn.className = 'btn btn-bca btn-sm mt-2';
-                confirmBtn.innerText = 'Konfirmasi & Buat Antrian';
-                confirmBtn.addEventListener('click', () => confirmDetection(d.id));
-                document.querySelector('.card.mt-3 .card-body').appendChild(confirmBtn);
+            let metadata = d.metadata || {};
+
+            // Hide empty state and show customer info
+            document.getElementById('customer-info-empty').classList.add('d-none');
+            document.getElementById('customer-info-box').classList.remove('d-none');
+
+            // If customer_id exists, fetch full customer data from API
+            if (d.customer_id) {
+                console.log('Fetching customer data for ID:', d.customer_id);
+                try {
+                    const res = await fetch('/security/api/customer/' + d.customer_id);
+                    if (res.ok) {
+                        const customerData = await res.json();
+                    if (customerData.customer) {
+                            const cust = customerData.customer;
+                            console.log('Customer data retrieved:', cust);
+
+                            // Update customer info display
+                            document.getElementById('customer-name').innerText = cust.name;
+                            document.getElementById('customer-code').innerText = cust.cust_code;
+                            document.getElementById('customer-status').innerText = 'Cocok - Ditemukan di Database';
+                            document.getElementById('customer-status').className = 'badge bg-success';
+
+                            if (cust.photo) {
+                                document.getElementById('customer-photo').src = '/storage/' + cust.photo;
+                            } else {
+                                document.getElementById('customer-photo').src = 'https://via.placeholder.com/150';
+                            }
+
+                            metadata = {
+                                'Name': cust.name,
+                                'Customer Code': cust.cust_code,
+                                'Photo': cust.photo ? 'Yes' : 'No',
+                                ...metadata
+                            };
+
+                            // show customer.rekomendasi if present
+                            const custRecEl = document.getElementById('customer-recommendations');
+                            if (cust.rekomendasi) {
+                                custRecEl.innerText = cust.rekomendasi;
+                            } else {
+                                custRecEl.innerText = '-';
+                            }
+                        }
+                    } else {
+                        console.error('Failed to fetch, status:', res.status);
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch customer data:', e);
+                    document.getElementById('customer-status').innerText = 'Error Loading';
+                    document.getElementById('customer-status').className = 'badge bg-warning';
+                }
             } else {
-                // update click handler
-                confirmBtn.onclick = () => confirmDetection(d.id);
+                // No customer match - show detection name
+                console.log('No customer_id, showing detection name:', d.name);
+                document.getElementById('customer-name').innerText = d.name || 'Unknown';
+                document.getElementById('customer-code').innerText = '-';
+                document.getElementById('customer-status').innerText = 'Tidak Cocok - Tidak Ada di Database';
+                document.getElementById('customer-status').className = 'badge bg-danger';
+                document.getElementById('customer-photo').src = 'https://via.placeholder.com/150';
+                // show recommendations from detection metadata if present
+                const recEl = document.getElementById('customer-recommendations');
+                if (metadata.recommendations) {
+                    const recs = metadata.recommendations;
+                    if (Array.isArray(recs)) {
+                        recEl.innerHTML = '<ul>' + recs.map(r => '<li>' + String(r).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('') + '</ul>';
+                    } else {
+                        recEl.innerText = String(recs);
+                    }
+                } else if (metadata.recommendation) {
+                    recEl.innerText = String(metadata.recommendation);
+                } else {
+                    recEl.innerText = '-';
+                }
             }
+
+            document.getElementById('capture-detail').innerText = JSON.stringify(metadata, null, 2);
         }
 
         async function confirmDetection(id) {
-            const res = await fetch('/security/api/faces/' + id + '/confirm', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') } });
-            if (!res.ok) {
-                alert('Gagal mengkonfirmasi');
+            if (!currentDetection) {
+                alert('Tidak ada detection yang dipilih');
                 return;
             }
-            const data = await res.json();
-            alert('Berhasil dikonfirmasi. Customer ditambahkan ke antrian.');
-            loadDetections();
+
+            const btn = document.getElementById('btn-confirm-customer');
+            btn.disabled = true;
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            console.log('Confirming detection ID:', id);
+            console.log('Customer ID:', currentDetection.customer_id || 'None (will create new)');
+            console.log('CSRF Token:', csrfToken ? 'Present' : 'Missing');
+
+            try {
+                // Prepare body with customer_id if exists
+                const body = {};
+                if (currentDetection.customer_id) {
+                    body.customer_id = currentDetection.customer_id;
+                }
+
+                const res = await fetch('/security/api/faces/' + id + '/confirm', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                console.log('Response status:', res.status);
+                const responseText = await res.text();
+                console.log('Response text:', responseText);
+
+                if (!res.ok) {
+                    alert('Gagal mengkonfirmasi (Status: ' + res.status + '). Cek console untuk detail.');
+                    btn.disabled = false;
+                    return;
+                }
+
+                const data = JSON.parse(responseText);
+                console.log('Success response:', data);
+                alert('✓ Berhasil! Customer ' + currentDetection.name + ' ditambahkan ke antrian.');
+                loadDetections();
+                document.getElementById('customer-info-empty').classList.remove('d-none');
+                document.getElementById('customer-info-box').classList.add('d-none');
+                currentDetection = null;
+            } catch (e) {
+                console.error('Error during confirm:', e);
+                alert('Terjadi error: ' + e.message + '. Cek console untuk detail lengkap.');
+                btn.disabled = false;
+            }
         }
 
-        document.getElementById('btn-refresh-detections').addEventListener('click', loadDetections);
+        function rejectDetection() {
+            document.getElementById('customer-info-empty').classList.remove('d-none');
+            document.getElementById('customer-info-box').classList.add('d-none');
+            currentDetection = null;
+        }
+
+        // Event listeners
+        document.getElementById('btn-confirm-customer').addEventListener('click', function () {
+            if (currentDetection) {
+                confirmDetection(currentDetection.id);
+            }
+        });
+
+        document.getElementById('btn-reject-customer').addEventListener('click', rejectDetection);
 
         // initial load and poll
         loadDetections();

@@ -39,7 +39,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/security/api/faces', [\App\Http\Controllers\Security\SecurityController::class, 'faceIndex'])->name('security.api.faces');
         Route::get('/security/api/faces/{id}', [\App\Http\Controllers\Security\SecurityController::class, 'show'])->name('security.api.faces.show');
         Route::post('/security/api/faces/{id}/confirm', [\App\Http\Controllers\Security\SecurityController::class, 'confirm'])->name('security.api.faces.confirm');
-
+        Route::get('/security/api/customer/{customerId}', [\App\Http\Controllers\Security\SecurityController::class, 'getCustomer'])->name('security.api.customer.show');
     });
 
 // optional HTTP webhook for MQTT brokers or bridges to POST detection results
@@ -47,9 +47,8 @@ Route::middleware('auth')->group(function () {
 // Protect it by setting MQTT_WEBHOOK_SECRET in .env and supplying the header X-MQTT-SECRET in requests.
 
     Route::middleware(['role:nasabah'])->group(function () {
-        Route::get('/customer/queue', function () {
-            return view('user.userqueue');
-        })->name('nasabah.dashboard');
+        Route::get('/customer/queue', [\App\Http\Controllers\Customer\CustomerQueueController::class, 'index'])->name('nasabah.dashboard');
+        Route::get('/customer/api/queue-status', [\App\Http\Controllers\Customer\CustomerQueueController::class, 'queueStatus'])->name('customer.api.queue.status');
     });
 });
 

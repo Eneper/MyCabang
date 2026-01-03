@@ -7,33 +7,31 @@
 
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <div class="text-center mb-4">
-                        <div class="small text-muted">Sedang dipanggil:</div>
-                        <div id="current-number" class="display-4 fw-bold">-</div>
+                    <div id="not-in-queue" class="text-center text-muted py-5">
+                        <p class="h6 mb-1">Anda tidak sedang dalam antrian</p>
+                        <p class="small mb-0">Silakan tunggu sampai petugas keamanan memanggil Anda</p>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <div class="small text-muted">Nomor Anda</div>
-                            <div id="my-number" class="h4 fw-semibold">#-</div>
-                            <div id="position" class="small text-muted">Posisi: -</div>
+                    <div id="in-queue" class="d-none">
+                        <div class="text-center mb-4">
+                            <div class="small text-muted">Posisi Antrian Anda</div>
+                            <div id="position" class="display-4 fw-bold text-bca">#-</div>
                         </div>
-                        <div class="col-6">
-                            <div class="small text-muted">Perkiraan menunggu</div>
-                            <div id="eta" class="h4 fw-semibold">-</div>
-                            <div id="reminder" class="small text-warning">-</div>
+
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <div class="small text-uppercase text-muted">Status</div>
+                                <div id="status" class="h5 fw-semibold mt-2">-</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-uppercase text-muted">Total dalam antrian</div>
+                                <div id="total-queue" class="h5 fw-semibold mt-2">-</div>
+                            </div>
                         </div>
-                    </div>
 
-                    <hr>
-
-                    <div class="small text-muted">Riwayat antrian</div>
-                    <ul id="queue-list" class="mt-2 small text-muted list-unstyled">
-                        <li>Tidak ada data antrian saat ini.</li>
-                    </ul>
-
-                    <div class="mt-4 text-center">
-                        <button id="btn-simulate" class="btn btn-bca btn-sm">Simulasi Antrian</button>
+                        <div class="alert alert-info alert-sm" role="alert">
+                            <small id="queue-message">Tunggu giliran Anda untuk dipanggil</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -41,47 +39,51 @@
     </div>
 
     <script>
-        // Simple simulation to demonstrate reminders/notifications UI
-        const state = {
-            current: 10,
-            myNumber: 14,
-            queue: [10,11,12,13,14,15,16]
-        };
+        async function checkQueueStatus() {
+            try {
+                const res = await fetch('/customer/api/queue-status');
+                if (!res.ok) throw new Error('Failed to fetch');
 
-        function render() {
-            document.getElementById('current-number').innerText = state.current;
-            document.getElementById('my-number').innerText = '#' + state.myNumber;
-            const pos = state.queue.indexOf(state.myNumber);
-            document.getElementById('position').innerText = pos === -1 ? 'Tidak terdaftar' : (pos === 0 ? 'Sedang dipanggil' : pos + ' orang sebelum Anda');
-            document.getElementById('eta').innerText = pos <= 0 ? 'Segera' : (pos * 3) + ' menit (perkiraan)';
-
-            // Reminder when 1 before
-            const reminderEl = document.getElementById('reminder');
-            if (pos === 1) {
-                reminderEl.innerText = 'Reminder: 1 orang sebelum Anda — persiapkan diri.';
-            } else if (pos === 0) {
-                reminderEl.innerText = 'Sekarang giliran Anda! Check-in di loket.';
-            } else {
-                reminderEl.innerText = '-';
+                const data = await res.json();
+                updateQueueUI(data);
+            } catch (e) {
+                console.error('Error checking queue status:', e);
             }
-
-            // Render list
-            const list = document.getElementById('queue-list');
-            list.innerHTML = '';
-            state.queue.forEach(n => {
-                const li = document.createElement('li');
-                li.innerText = n === state.current ? n + ' (dipanggil)' : (n === state.myNumber ? n + ' (Anda)' : n);
-                list.appendChild(li);
-            });
         }
 
-        document.getElementById('btn-simulate').addEventListener('click', function () {
-            // advance queue
-            state.queue.shift();
-            state.current = state.queue[0] || '-';
-            render();
-        });
+        function updateQueueUI(data) {
+            const notInQueueEl = document.getElementById('not-in-queue');
+            const inQueueEl = document.getElementById('in-queue');
 
-        render();
+            if (data.in_queue) {
+                notInQueueEl.classList.add('d-none');
+                inQueueEl.classList.remove('d-none');
+
+                document.getElementById('position').innerText = '#' + data.position;
+                document.getElementById('total-queue').innerText = data.total_in_queue;
+
+                if (data.currently_served) {
+                    document.getElementById('status').innerText = '🔴 Sedang Dilayani';
+                    document.getElementById('status').className = 'h5 fw-semibold mt-2 text-success';
+                    document.getElementById('queue-message').innerText = 'Anda sedang dilayani sekarang!';
+                } else {
+                    document.getElementById('status').innerText = '⏳ Menunggu';
+                    document.getElementById('status').className = 'h5 fw-semibold mt-2 text-warning';
+                    document.getElementById('queue-message').innerText = 'Posisi #' + data.position + ' dari ' + data.total_in_queue + ' menunggu';
+                }
+            } else if (data.is_finished) {
+                notInQueueEl.classList.add('d-none');
+                inQueueEl.classList.remove('d-none');
+                document.getElementById('status').innerText = '✓ Selesai';
+                document.getElementById('status').className = 'h5 fw-semibold mt-2 text-success';
+                document.getElementById('queue-message').innerText = 'Layanan Anda telah selesai. Terima kasih!';
+            } else {
+                notInQueueEl.classList.remove('d-none');
+                inQueueEl.classList.add('d-none');
+            }
+        }
+        // Initial load and poll every 2 seconds
+        checkQueueStatus();
+        setInterval(checkQueueStatus, 2000);
     </script>
 @endsection

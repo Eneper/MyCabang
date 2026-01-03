@@ -15,7 +15,8 @@ class FaceDetectionService
         $name = $payload['name'] ?? null;
         // accept either 'id', 'cust_id' or 'customer_id' for the customer id
         $custCode = $payload['id'] ?? ($payload['cust_id'] ?? ($payload['customer_id'] ?? null));
-        $recommendation = $payload['recommendation'] ?? null;
+        // accept either 'recommendations' (array) or 'recommendation' (string)
+        $recommendation = $payload['recommendations'] ?? ($payload['recommendation'] ?? null);
         $metadata = $payload['metadata'] ?? [];
 
         // normalize metadata to array
@@ -43,9 +44,25 @@ class FaceDetectionService
             $metadata['matched_by'] = 'none';
         }
 
+        // attach recommendation(s) into metadata if provided
+        if ($recommendation) {
+            $metadata['recommendations'] = $recommendation;
+        }
+
+        // if matched customer exists and recommendation provided, save to customer.rekomendasi
+        if ($customer && $recommendation) {
+            if (is_array($recommendation)) {
+                $customer->rekomendasi = implode('; ', $recommendation);
+            } else {
+                $customer->rekomendasi = $recommendation;
+            }
+            $customer->save();
+        }
+
         return FaceDetection::create([
             'name' => $name,
             'customer_id' => $customer?->id,
+            
             // 'photo' => $customer?->photo, // ⬅️ ambil foto dari customer
             'metadata' => $metadata,
         ]);

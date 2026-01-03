@@ -34,6 +34,13 @@ class SecurityController extends Controller
         return response()->json(['detection' => $d]);
     }
 
+    // get customer data by id
+    public function getCustomer($customerId)
+    {
+        $customer = Customer::findOrFail($customerId);
+        return response()->json(['customer' => $customer]);
+    }
+
     // confirm detection and optionally create queue entry
     public function confirm(Request $request, $faceDetectionId)
     {
@@ -49,7 +56,9 @@ class SecurityController extends Controller
         } else {
             // create a simple customer record using name from detection
             $name = $d->name ?? 'Tamu ' . Str::upper(Str::random(4));
-            $customer = Customer::create(['name' => $name]);
+            // Generate unique cust_code
+            $cust_code = 'CUST' . str_pad(Customer::max('id') + 1, 5, '0', STR_PAD_LEFT);
+            $customer = Customer::create(['name' => $name, 'cust_code' => $cust_code]);
             $d->customer_id = $customer->id;
         }
 

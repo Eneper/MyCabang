@@ -107,14 +107,15 @@ class SubscribeMqtt extends Command
      */
     public function validateAndFormatPayload(array $payload): ?string
     {
-        if (empty($payload['name']) || empty($payload['id'])) {
-            return null;
-        }
+        // if (empty($payload['name']) || empty($payload['id'])) {
+        //     return null;
+        // }
 
         $name = $payload['name'];
         $id = $payload['id'];
+        $recommendation = $payload['recommendations'] ?? ($payload['recommendation'] ?? 'none');
 
-        return "Received data - name: {$name}, id: {$id}";
+        return "Received data - name: {$name}, id: {$id}, rekomendasi:{$recommendation}";
     }
 
     /**

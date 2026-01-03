@@ -24,7 +24,17 @@ class TellerController extends Controller
     public function queue()
     {
         $finished = Cache::get('teller_finished', []);
-        $customers = Customer::whereNotIn('id', $finished)->orderBy('id')->get();
+        $securityQueue = Cache::get('security_queue', []);
+
+        // Get ONLY customers in security queue (confirmed by security officer)
+        // Filter out those already finished
+        $queuedIds = array_diff($securityQueue, $finished);
+
+        // Get customers data for all queued ids
+        $customers = Customer::whereIn('id', $queuedIds)
+            ->orderByRaw('FIELD(id, ' . implode(',', $queuedIds) . ')')
+            ->get();
+
         $current = Cache::get('teller_current_customer');
         // if no current, set to first in queue
         if (!$current && $customers->count()) {
