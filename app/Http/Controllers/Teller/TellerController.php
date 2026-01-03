@@ -68,10 +68,23 @@ class TellerController extends Controller
     public function showRecommendation($customerId)
     {
         // In production this would call AI/model service.
+        // Structure: title (produk), reason (alasan mengapa), explanation (penjelasan detail dari AI)
         $recommendations = [
-            ['title' => 'Tabungan Prima', 'reason' => 'Cocok untuk penabung rutin'],
-            ['title' => 'Deposito Berjangka 3 bulan', 'reason' => 'Promo bunga lebih tinggi'],
-            ['title' => 'Kartu Kredit Silver', 'reason' => 'Kelayakan berdasarkan scoring internal'],
+            [
+                'title' => 'Tabungan Prima',
+                'reason' => 'Cocok untuk penabung rutin',
+                'explanation' => 'Berdasarkan pola transaksi, nasabah melakukan setoran berkala setiap bulan. Tabungan Prima menawarkan bunga kompetitif dan kemudahan pencairan.'
+            ],
+            [
+                'title' => 'Deposito Berjangka 3 bulan',
+                'reason' => 'Promo bunga lebih tinggi',
+                'explanation' => 'AI mendeteksi saldo idle yang cukup besar. Dengan mendepositokan dana untuk jangka pendek, nasabah dapat return lebih baik dibanding tabungan reguler.'
+            ],
+            [
+                'title' => 'Kartu Kredit Silver',
+                'reason' => 'Kelayakan berdasarkan scoring internal',
+                'explanation' => 'Profil nasabah menunjukkan skor kredit yang baik dan aktivitas transaksi stabil. Kartu Silver memberikan benefit cashback dan asuransi perjalanan.'
+            ],
         ];
 
         return response()->json(['customer_id' => (int) $customerId, 'products' => $recommendations]);
